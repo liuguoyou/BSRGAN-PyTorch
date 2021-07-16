@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     """ GPU 디바이스 설정 """
     cudnn.benchmark = True
-    device = torch.device('cuda:3' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     
     """ Torch Seed 설정 """
     torch.manual_seed(args.seed)
@@ -104,12 +104,12 @@ if __name__ == '__main__':
         discriminator.load_state_dict(checkpoint_d['model_state_dict'])
         d_epoch = checkpoint_g['epoch'] + 1
         discriminator_optimizer.load_state_dict(checkpoint_d['optimizer_state_dict'])
-    elif os.path.exists(args.pretrained_ldsr):
+    elif os.path.exists(args.pretrained_net):
         """ load LDSR pth if there are no pre-trained generator & discriminator """
-        # checkpoint = torch.load(args.pretrained_ldsr)
+        # checkpoint = torch.load(args.pretrained_net)
         # generator.load_state_dict(checkpoint)
         state_dict = generator.state_dict()
-        for n, p in torch.load(args.pretrained_ldsr,map_location=device).items():
+        for n, p in torch.load(args.pretrained_net,map_location=device).items():
             if n in state_dict.keys():
                 state_dict[n].copy_(p)
     else:
