@@ -26,11 +26,11 @@ def calc_psnr(img1, img2):
 
 def calc_ssim(img1, img2):
     """ SSIM 계산 """
-    return ssim(img1, img2, data_range=1,size_average=False)
+    return ssim(img1, img2, data_range=1, size_average=False)
 
 def calc_lpips(img1, img2, lpips_metric):
     """ LPIPS 계산 """
-    return lpips_metric(img1, img2)
+    return lpips_metric(img1, img2)[0][0][0][0]
 
 def get_concat_h(img1, img2):
     merge = pil_image.new('RGB', (img1.width + img2.width, img1.height))

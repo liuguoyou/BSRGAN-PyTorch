@@ -1,7 +1,8 @@
-# python train.py --train-file data/train --eval-file data/eval --outputs-dir models --scale 3
-# python train.py --train-file data/train --eval-file data/eval --outputs-dir models --scale 3 --checkpoint-file 
-import argparse
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+import argparse
+
+
 import math
 import logging
 
@@ -16,12 +17,15 @@ from torch.cuda import amp
 from utils import AverageMeter, ProgressMeter, calc_psnr, calc_ssim, calc_lpips, preprocess
 from dataset import Dataset
 from PIL import Image
-from models.loss import VGGLoss
+from models.loss import VGGLoss, GANLoss
 from models.models import Generator, Discriminator
 from lpips import LPIPS
 
+
+
+
 # 테스트 이미지 경로 설정
-test_image_path = 'examples/0001.png'
+test_image_path = 'examples/butterfly.png'
 # 테스트 이미지 불러오기
 test_image = Image.open(test_image_path).convert('RGB')
 # 테스트 이미지 전처리
@@ -44,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=48)
     parser.add_argument('--num-epochs', type=int, default=10000)
     parser.add_argument('--num-workers', type=int, default=8)
-    parser.add_argument('--patch-size', type=int, default=144)
+    parser.add_argument('--patch-size', type=int, default=96)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--resume-g', type=str, default='generator.pth')
     parser.add_argument('--resume-d', type=str, default='discriminator.pth')
@@ -69,7 +73,7 @@ if __name__ == '__main__':
     """ Loss 설정 """
     pixel_criterion = nn.L1Loss().to(device)
     content_criterion = VGGLoss().to(device)
-    adversarial_criterion = nn.BCEWithLogitsLoss().to(device)
+    adversarial_criterion = GANLoss().to(device)
     
     """ Optimizer 설정 """
     generator_optimizer = torch.optim.Adam(generator.parameters(), lr=args.gan_lr, betas=(0.9, 0.999))
@@ -113,7 +117,7 @@ if __name__ == '__main__':
             if n in state_dict.keys():
                 state_dict[n].copy_(p)
     else:
-        raise RuntimeError("You need pre-trained LDSR.pth or generator & discriminator")
+        raise RuntimeError("You need pre-trained BSRGAN.pth or generator & discriminator")
 
     """ 로그 인포 프린트 하기 """
     logger.info(
@@ -147,6 +151,7 @@ if __name__ == '__main__':
                                 batch_size=args.batch_size,
                                 shuffle=False,
                                 num_workers=args.num_workers,
+                                drop_last=True,
                                 pin_memory=True
                                 )
     
@@ -188,11 +193,12 @@ if __name__ == '__main__':
 
             with amp.autocast():
                 preds = generator(lr)
-                real_output = discriminator(hr)
-                fake_output = discriminator(preds.detach())
 
-                d_loss_real = adversarial_criterion(real_output - torch.mean(fake_output), real_label)
-                d_loss_fake = adversarial_criterion(fake_output - torch.mean(real_output), fake_label)
+                real_output = discriminator(hr)
+                d_loss_real = adversarial_criterion(real_output, True)
+
+                fake_output = discriminator(preds.detach())
+                d_loss_fake = adversarial_criterion(fake_output, False)
 
                 d_loss = (d_loss_real + d_loss_fake) / 2
 
@@ -205,13 +211,14 @@ if __name__ == '__main__':
             with amp.autocast():
                 preds = generator(lr)
                 real_output = discriminator(hr.detach())
-                fake_ouput = discriminator(preds)
+                fake_output = discriminator(preds)
                 pixel_loss = pixel_criterion(preds, hr.detach())
                 content_loss = content_criterion(preds, hr.detach())
-                adversarial_loss = adversarial_criterion(fake_ouput - torch.mean(real_output), real_label)
+                adversarial_loss = adversarial_criterion(fake_output, True)
 
-                g_loss = 0.01 * pixel_loss + 1 * content_loss + 0.005 * adversarial_loss
-            
+                #g_loss = 0.01 * pixel_loss + 1 * content_loss + 0.005 * adversarial_loss
+                g_loss = adversarial_loss + 0.01 * pixel_loss  + 0.005
+
             scaler.scale(g_loss).backward()
             scaler.step(generator_optimizer)
             scaler.update()
@@ -234,7 +241,6 @@ if __name__ == '__main__':
                 lr = lr.to(device)
                 hr = hr.to(device)
                 preds = generator(lr)
-
                 psnr.update(calc_psnr(preds, hr), len(lr))
                 ssim.update(calc_ssim(preds, hr), len(lr))
                 lpips.update(calc_lpips(preds, hr, lpips_metrics), len(lr))
