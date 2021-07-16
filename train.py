@@ -181,19 +181,17 @@ if __name__ == '__main__':
         
         """  트레이닝 Epoch 시작 """
         for i, (lr, hr) in enumerate(train_dataloader):
+            """ LR & HR 디바이스 설정 """
             lr = lr.to(device)
             hr = hr.to(device)
-            batch_size = lr.size(0)
 
-            # 리얼 라벨 1, 생선된 가짜 라벨 0
-            real_label = torch.full((batch_size, 1), 1, dtype=lr.dtype).to(device)
-            fake_label = torch.full((batch_size, 1), 0, dtype=lr.dtype).to(device)
-
+            """ 식별자 최적화 초기화 """
             discriminator_optimizer.zero_grad()
 
             with amp.autocast():
+                """ 추론 """
                 preds = generator(lr)
-
+                """ 식별자 통과 후 loss 계산 """
                 real_output = discriminator(hr)
                 d_loss_real = adversarial_criterion(real_output, True)
 
@@ -202,35 +200,41 @@ if __name__ == '__main__':
 
                 d_loss = (d_loss_real + d_loss_fake) / 2
 
+            """ 가중치 업데이트 """
             scaler.scale(d_loss).backward()
             scaler.step(discriminator_optimizer)
             scaler.update()
-
+            
+            """ 생성자 최적화 초기화 """
             generator_optimizer.zero_grad()
 
             with amp.autocast():
+                """ 추론 """
                 preds = generator(lr)
+                """ 식별자 통과 후 loss 계산 """
                 real_output = discriminator(hr.detach())
                 fake_output = discriminator(preds)
                 pixel_loss = pixel_criterion(preds, hr.detach())
                 content_loss = content_criterion(preds, hr.detach())
                 adversarial_loss = adversarial_criterion(fake_output, True)
+                g_loss = 0.01 * pixel_loss + 1 * content_loss + 0.005 * adversarial_loss
 
-                #g_loss = 0.01 * pixel_loss + 1 * content_loss + 0.005 * adversarial_loss
-                g_loss = adversarial_loss + 0.01 * pixel_loss  + 0.005
-
+            """ 가중치 업데이트 """
             scaler.scale(g_loss).backward()
             scaler.step(generator_optimizer)
             scaler.update()
 
+            """ 생성자 초기화 """
             generator.zero_grad()
 
+            """ loss 업데이트 """
             d_losses.update(d_loss.item(), lr.size(0))
             g_losses.update(g_loss.item(), lr.size(0))
             pixel_losses.update(pixel_loss.item(), lr.size(0))
             content_losses.update(content_loss.item(), lr.size(0))
             adversarial_losses.update(adversarial_loss.item(), lr.size(0))
             
+            """ 스케줄러 업데이트 """
             discriminator_scheduler.step()
             generator_scheduler.step()
     
