@@ -265,29 +265,30 @@ if __name__ == '__main__':
             torch.save(
                 generator.state_dict(), os.path.join(args.outputs_dir, 'best_g.pth'))
 
-        """ Discriminator 모델 저장 """
-        torch.save(
-            {
-                'epoch': epoch,
-                'model_state_dict': discriminator.state_dict(),
-                'optimizer_state_dict': discriminator_optimizer.state_dict(),
-            }, os.path.join(args.outputs_dir, 'd_epoch_{}.pth'.format(epoch)))
-            
-        """ Generator 모델 저장 """
-        torch.save(
-            {
-                'epoch': epoch,
-                'model_state_dict': generator.state_dict(),
-                'optimizer_state_dict': generator_optimizer.state_dict(),
-                'best_lpips': best_lpips,
-            }, os.path.join(args.outputs_dir, 'g_epoch_{}.pth'.format(epoch)))
+        """ Epoch 100번에 1번 저장 """
+        if epoch % 100 == 0:
+            """ Discriminator 모델 저장 """
+            torch.save(
+                {
+                    'epoch': epoch,
+                    'model_state_dict': discriminator.state_dict(),
+                    'optimizer_state_dict': discriminator_optimizer.state_dict(),
+                }, os.path.join(args.outputs_dir, 'd_epoch_{}.pth'.format(epoch)))
+                
+            """ Generator 모델 저장 """
+            torch.save(
+                {
+                    'epoch': epoch,
+                    'model_state_dict': generator.state_dict(),
+                    'optimizer_state_dict': generator_optimizer.state_dict(),
+                    'best_lpips': best_lpips,
+                }, os.path.join(args.outputs_dir, 'g_epoch_{}.pth'.format(epoch)))
 
-        """ 나비 이미지 테스트 """
-        with torch.no_grad():
-            lr = test_image.to(device)
-            preds = generator(lr)
-            #vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
-            if epoch % 100 == 0:
+            """ 나비 이미지 테스트 """
+            with torch.no_grad():
+                lr = test_image.to(device)
+                preds = generator(lr)
+                #vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
                 writer.add_image(f'{epoch}_BSRGAN_x{args.scale} results', preds.squeeze().detach())
     
     """ 텐서보드 종료 """
