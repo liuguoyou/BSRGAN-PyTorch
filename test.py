@@ -6,7 +6,7 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 import PIL.Image as pil_image
 
-from models import RRDBNet
+from models.models import Generator
 from utils import preprocess, get_concat_h
 
 if __name__ == '__main__':
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     cudnn.benchmark = True
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    model = RRDBNet(scale_factor=args.scale).to(device)
+    model = Generator(scale_factor=args.scale).to(device)
     try:
         model.load_state_dict(torch.load(args.weights_file, map_location=device))
     except:
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     output = np.array(preds).transpose([1,2,0])
     output = np.clip(output, 0.0, 255.0).astype(np.uint8)
     output = pil_image.fromarray(output)
-    output.save(args.image_file.replace('.', '_BSRGAN_x{}.'.format(args.scale)))
+    output.save(args.image_file.replace('.', f'_{model.__class__.__name__}_x{args.scale}.'))
 
     if args.merge:
         merge = get_concat_h(bicubic, output).save(args.image_file.replace('.', '_hconcat_.'))

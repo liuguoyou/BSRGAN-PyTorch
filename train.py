@@ -1,11 +1,7 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import argparse
-
-
 import math
 import logging
-
 import torch
 import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
@@ -13,6 +9,7 @@ import torchvision.utils as vutils
 from torch.utils.data.dataloader import DataLoader
 from torch import nn
 from torch.cuda import amp
+from torch.utils.tensorboard import SummaryWriter
 
 from utils import AverageMeter, ProgressMeter, calc_psnr, calc_ssim, calc_lpips, preprocess
 from dataset import Dataset
@@ -20,7 +17,6 @@ from PIL import Image
 from models.loss import VGGLoss, GANLoss
 from models.models import Generator, Discriminator
 from lpips import LPIPS
-
 
 
 
@@ -46,27 +42,31 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained-net', type=str, default='BSRNet.pth')
     parser.add_argument('--gan-lr', type=float, default=1e-5)
     parser.add_argument('--batch-size', type=int, default=48)
-    parser.add_argument('--num-epochs', type=int, default=10000)
+    parser.add_argument('--num-epochs', type=int, default=100000)
     parser.add_argument('--num-workers', type=int, default=8)
     parser.add_argument('--patch-size', type=int, default=96)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--resume-g', type=str, default='generator.pth')
     parser.add_argument('--resume-d', type=str, default='discriminator.pth')
+    parser.add_argument('--cuda', type=str, default='1')
     args = parser.parse_args()
-    
+
     """ weight를 저장 할 경로 설정 """ 
-    args.outputs_dir = os.path.join(args.outputs_dir,  f"BSRGAN_x{args.scale}")
+    args.outputs_dir = os.path.join(args.outputs_dir,  f"Tensorboard_Test_BSRGAN_x{args.scale}")
     if not os.path.exists(args.outputs_dir):
         os.makedirs(args.outputs_dir)
 
+    """ 텐서보드 설정 """
+    writer = SummaryWriter(args.outputs_dir)
+
     """ GPU 디바이스 설정 """
     cudnn.benchmark = True
-    device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f'cuda:{args.cuda}' if torch.cuda.is_available() else 'cpu')
     
     """ Torch Seed 설정 """
     torch.manual_seed(args.seed)
 
-    """ LDSR 모델 설정 """
+    """ BSRGAN 모델 설정 """
     generator = Generator(scale_factor=args.scale).to(device)
     discriminator = Discriminator().to(device)
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         d_epoch = checkpoint_g['epoch'] + 1
         discriminator_optimizer.load_state_dict(checkpoint_d['optimizer_state_dict'])
     elif os.path.exists(args.pretrained_net):
-        """ load LDSR pth if there are no pre-trained generator & discriminator """
+        """ load BSRGAN pth if there are no pre-trained generator & discriminator """
         # checkpoint = torch.load(args.pretrained_net)
         # generator.load_state_dict(checkpoint)
         state_dict = generator.state_dict()
@@ -133,8 +133,7 @@ if __name__ == '__main__':
                 f"\tOutput weights directory path: {args.outputs_dir}\n"
                 f"\tGAN learning rate:             {args.gan_lr}\n"
                 f"\tPatch size:                    {args.patch_size}\n"
-                f"\tBatch size:                    {args.batch_size}\n"
-                )
+                f"\tBatch size:                    {args.batch_size}\n")
 
     """ 데이터셋 & 데이터셋 설정 """
     train_dataset = Dataset(args.train_file, args.patch_size, args.scale)
@@ -143,8 +142,7 @@ if __name__ == '__main__':
                             batch_size=args.batch_size,
                             shuffle=True,
                             num_workers=args.num_workers,
-                            pin_memory=True
-                        )
+                            pin_memory=True)
     eval_dataset = Dataset(args.eval_file, args.patch_size, args.scale)
     eval_dataloader = DataLoader(
                                 dataset=eval_dataset, 
@@ -152,8 +150,7 @@ if __name__ == '__main__':
                                 shuffle=False,
                                 num_workers=args.num_workers,
                                 drop_last=True,
-                                pin_memory=True
-                                )
+                                pin_memory=True)
     
     """ 트레이닝 시작 & 테스트 시작"""
     for epoch in range(g_epoch, total_epoch):
@@ -176,8 +173,7 @@ if __name__ == '__main__':
         progress = ProgressMeter(
             num_batches=len(eval_dataloader)-1,
             meters=[psnr, lpips, ssim, d_losses, g_losses, pixel_losses, content_losses, adversarial_losses],
-            prefix=f"Epoch: [{epoch}]"
-        )
+            prefix=f"Epoch: [{epoch}]")
         
         """  트레이닝 Epoch 시작 """
         for i, (lr, hr) in enumerate(train_dataloader):
@@ -237,7 +233,14 @@ if __name__ == '__main__':
             """ 스케줄러 업데이트 """
             discriminator_scheduler.step()
             generator_scheduler.step()
-    
+
+        """ 1 epoch 마다 텐서보드 업데이트 """
+        writer.add_scalar('d_Loss/train', d_losses.avg, epoch)
+        writer.add_scalar('g_Loss/train', g_losses.avg, epoch)
+        writer.add_scalar('pixel_losses/train', pixel_losses.avg, epoch)
+        writer.add_scalar('adversarial_losses/train', content_losses.avg, epoch)
+        writer.add_scalar('adversarial_losses/train', adversarial_losses.avg, epoch)
+
         """  테스트 Epoch 시작 """
         generator.eval()
         with torch.no_grad():
@@ -246,18 +249,21 @@ if __name__ == '__main__':
                 hr = hr.to(device)
                 preds = generator(lr)
                 psnr.update(calc_psnr(preds, hr), len(lr))
-                ssim.update(calc_ssim(preds, hr), len(lr))
+                ssim.update(calc_ssim(preds, hr).mean(), len(lr))
                 lpips.update(calc_lpips(preds, hr, lpips_metrics), len(lr))
-
                 if i == len(eval_dataset)//args.batch_size:
                     progress.display(i)
-        
+
+        """ 텐서보드 업데이트 """
+        writer.add_scalar('psnr/test', psnr.avg, epoch)
+        writer.add_scalar('ssim/test', ssim.avg, epoch)
+        writer.add_scalar('lpips/test', lpips.avg, epoch)
+
         """  Best 모델 저장 """
         if lpips.avg > best_lpips:
             best_lpips = lpips.avg
             torch.save(
-                generator.state_dict(), os.path.join(args.outputs_dir, 'best_g.pth')
-            )
+                generator.state_dict(), os.path.join(args.outputs_dir, 'best_g.pth'))
 
         """ Discriminator 모델 저장 """
         torch.save(
@@ -265,8 +271,8 @@ if __name__ == '__main__':
                 'epoch': epoch,
                 'model_state_dict': discriminator.state_dict(),
                 'optimizer_state_dict': discriminator_optimizer.state_dict(),
-            }, os.path.join(args.outputs_dir, 'd_epoch_{}.pth'.format(epoch))
-        )
+            }, os.path.join(args.outputs_dir, 'd_epoch_{}.pth'.format(epoch)))
+            
         """ Generator 모델 저장 """
         torch.save(
             {
@@ -274,11 +280,15 @@ if __name__ == '__main__':
                 'model_state_dict': generator.state_dict(),
                 'optimizer_state_dict': generator_optimizer.state_dict(),
                 'best_lpips': best_lpips,
-            }, os.path.join(args.outputs_dir, 'g_epoch_{}.pth'.format(epoch))
-        )
+            }, os.path.join(args.outputs_dir, 'g_epoch_{}.pth'.format(epoch)))
 
         """ 나비 이미지 테스트 """
         with torch.no_grad():
             lr = test_image.to(device)
             preds = generator(lr)
-            vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
+            #vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
+            if epoch % 100 == 0:
+                writer.add_image(f'{epoch}_BSRGAN_x{args.scale} results', preds.squeeze().detach())
+    
+    """ 텐서보드 종료 """
+    writer.close()
