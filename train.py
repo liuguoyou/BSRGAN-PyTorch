@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--gan-lr', type=float, default=1e-5)
     parser.add_argument('--batch-size', type=int, default=48)
     parser.add_argument('--num-epochs', type=int, default=100000)
-    parser.add_argument('--num-workers', type=int, default=8)
+    parser.add_argument('--num-workers', type=int, default=16)
     parser.add_argument('--patch-size', type=int, default=96)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--resume-g', type=str, default='generator.pth')
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     """ weight를 저장 할 경로 설정 """ 
-    args.outputs_dir = os.path.join(args.outputs_dir,  f"Tensorboard_Test_BSRGAN_x{args.scale}")
+    args.outputs_dir = os.path.join(args.outputs_dir,  f"BSRGAN_x{args.scale}")
     if not os.path.exists(args.outputs_dir):
         os.makedirs(args.outputs_dir)
 
@@ -230,9 +230,9 @@ if __name__ == '__main__':
             content_losses.update(content_loss.item(), lr.size(0))
             adversarial_losses.update(adversarial_loss.item(), lr.size(0))
             
-            """ 스케줄러 업데이트 """
-            discriminator_scheduler.step()
-            generator_scheduler.step()
+        """ 스케줄러 업데이트 """
+        discriminator_scheduler.step()
+        generator_scheduler.step()
 
         """ 1 epoch 마다 텐서보드 업데이트 """
         writer.add_scalar('d_Loss/train', d_losses.avg, epoch)
@@ -265,8 +265,8 @@ if __name__ == '__main__':
             torch.save(
                 generator.state_dict(), os.path.join(args.outputs_dir, 'best_g.pth'))
 
-        """ Epoch 100번에 1번 저장 """
-        if epoch % 100 == 0:
+        """ Epoch 1000번에 1번 저장 """
+        if epoch % 1000 == 0:
             """ Discriminator 모델 저장 """
             torch.save(
                 {
