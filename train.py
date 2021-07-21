@@ -6,6 +6,8 @@ import torch
 import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
 
+import tensorflow as tf
+
 from torch.utils.data.dataloader import DataLoader
 from torch import nn
 from torch.cuda import amp
@@ -43,8 +45,8 @@ if __name__ == '__main__':
     parser.add_argument('--gan-lr', type=float, default=1e-5)
     parser.add_argument('--batch-size', type=int, default=48)
     parser.add_argument('--num-epochs', type=int, default=100000)
-    parser.add_argument('--num-workers', type=int, default=16)
-    parser.add_argument('--patch-size', type=int, default=96)
+    parser.add_argument('--num-workers', type=int, default=8)
+    parser.add_argument('--patch-size', type=int, default=160)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--resume-g', type=str, default='generator.pth')
     parser.add_argument('--resume-d', type=str, default='discriminator.pth')
@@ -61,8 +63,19 @@ if __name__ == '__main__':
 
     """ GPU 디바이스 설정 """
     cudnn.benchmark = True
+    cudnn.deterministic = True
     device = torch.device(f'cuda:{args.cuda}' if torch.cuda.is_available() else 'cpu')
-    
+
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '0,3'
+    # gpus = tf.config.experimental.list_physical_devices('GPU')
+    # if gpus:
+    #     # 텐서플로가 첫 번째 GPU만 사용하도록 제한
+    #     try:
+    #         tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
+    #     except RuntimeError as e:
+    #         # 프로그램 시작시에 접근 가능한 장치가 설정되어야만 합니다
+    #         print(e)
+
     """ Torch Seed 설정 """
     torch.manual_seed(args.seed)
 
@@ -213,7 +226,7 @@ if __name__ == '__main__':
                 pixel_loss = pixel_criterion(preds, hr.detach())
                 content_loss = content_criterion(preds, hr.detach())
                 adversarial_loss = adversarial_criterion(fake_output, True)
-                g_loss = 0.01 * pixel_loss + 1 * content_loss + 0.005 * adversarial_loss
+                g_loss = 1 * pixel_loss + 1 * content_loss + 0.1 * adversarial_loss
 
             """ 가중치 업데이트 """
             scaler.scale(g_loss).backward()
@@ -266,7 +279,7 @@ if __name__ == '__main__':
                 generator.state_dict(), os.path.join(args.outputs_dir, 'best_g.pth'))
 
         """ Epoch 1000번에 1번 저장 """
-        if epoch % 1000 == 0:
+        if epoch % 100 == 0:
             """ Discriminator 모델 저장 """
             torch.save(
                 {
@@ -284,12 +297,12 @@ if __name__ == '__main__':
                     'best_lpips': best_lpips,
                 }, os.path.join(args.outputs_dir, 'g_epoch_{}.pth'.format(epoch)))
 
-            """ 나비 이미지 테스트 """
-            with torch.no_grad():
-                lr = test_image.to(device)
-                preds = generator(lr)
-                #vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
-                writer.add_image(f'{epoch}_BSRGAN_x{args.scale} results', preds.squeeze().detach())
+        """ 나비 이미지 테스트 """
+        with torch.no_grad():
+            lr = test_image.to(device)
+            preds = generator(lr)
+            vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
+            #writer.add_image(f'{epoch}_BSRGAN_x{args.scale} results', preds.squeeze().detach())
     
     """ 텐서보드 종료 """
     writer.close()
