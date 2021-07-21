@@ -10,7 +10,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import cv2
-from process import process
+from degradation.process import process
 import numpy as np
 
 

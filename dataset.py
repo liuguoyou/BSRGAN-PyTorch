@@ -2,7 +2,7 @@ import os
 import numpy as np
 from PIL import Image
 import torchvision.transforms as transforms
-from degradation import degradation_pipeline
+from degradation.degradation import degradation_pipeline
 from utils import check_image_file
 
 

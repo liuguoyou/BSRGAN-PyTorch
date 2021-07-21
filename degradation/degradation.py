@@ -4,8 +4,8 @@ import random
 from scipy import ndimage
 import imgaug.augmenters as ia
 from scipy.interpolate import interp2d
-from unprocess import unprocess, random_noise_levels, add_noise
-from process import process
+from degradation.unprocess import unprocess, random_noise_levels, add_noise
+from degradation.process import process
 import tensorflow as tf
 import glob
 import os
