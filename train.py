@@ -43,14 +43,14 @@ if __name__ == '__main__':
     parser.add_argument('--scale', type=int, default=2)
     parser.add_argument('--pretrained-net', type=str, default='BSRNet.pth')
     parser.add_argument('--gan-lr', type=float, default=1e-5)
-    parser.add_argument('--batch-size', type=int, default=48)
+    parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--num-epochs', type=int, default=100000)
     parser.add_argument('--num-workers', type=int, default=8)
-    parser.add_argument('--patch-size', type=int, default=160)
+    parser.add_argument('--patch-size', type=int, default=288)
     parser.add_argument('--seed', type=int, default=123)
     parser.add_argument('--resume-g', type=str, default='generator.pth')
     parser.add_argument('--resume-d', type=str, default='discriminator.pth')
-    parser.add_argument('--cuda', type=str, default='1')
+    parser.add_argument('--cuda', type=str, default='0')
     args = parser.parse_args()
 
     """ weight를 저장 할 경로 설정 """ 
@@ -65,16 +65,6 @@ if __name__ == '__main__':
     cudnn.benchmark = True
     cudnn.deterministic = True
     device = torch.device(f'cuda:{args.cuda}' if torch.cuda.is_available() else 'cpu')
-
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '0,3'
-    # gpus = tf.config.experimental.list_physical_devices('GPU')
-    # if gpus:
-    #     # 텐서플로가 첫 번째 GPU만 사용하도록 제한
-    #     try:
-    #         tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
-    #     except RuntimeError as e:
-    #         # 프로그램 시작시에 접근 가능한 장치가 설정되어야만 합니다
-    #         print(e)
 
     """ Torch Seed 설정 """
     torch.manual_seed(args.seed)
@@ -267,7 +257,7 @@ if __name__ == '__main__':
                 if i == len(eval_dataset)//args.batch_size:
                     progress.display(i)
 
-        """ 텐서보드 업데이트 """
+        """ 1 epoch 마다 텐서보드 업데이트 """
         writer.add_scalar('psnr/test', psnr.avg, epoch)
         writer.add_scalar('ssim/test', ssim.avg, epoch)
         writer.add_scalar('lpips/test', lpips.avg, epoch)
