@@ -15,10 +15,11 @@ class Dataset(object):
     # (이미지 디렉토리, 패치 사이즈, 스케일, 텐서플로우를 이용한 이미지 로더 사용 여부) 초기화
     def __init__(self, images_dir, image_size, upscale_factor):
         self.filenames = [os.path.join(images_dir, x) for x in os.listdir(images_dir) if check_image_file(x)]
+
         self.lr_transforms = transforms.Compose([
             transforms.ToPILImage(),
-            transforms.Resize((image_size // upscale_factor, image_size // upscale_factor), interpolation=Image.BICUBIC),
             transforms.Lambda(degradation),
+            transforms.Resize((image_size // upscale_factor, image_size // upscale_factor), interpolation=Image.BICUBIC),
             transforms.ToTensor()
         ])
         self.hr_transforms = transforms.Compose([
