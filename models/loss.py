@@ -4,15 +4,12 @@ import torch.nn.functional
 import torchvision
 import torch.nn as nn
 
-__all__ = [
-    "LPIPSLoss", "TVLoss", "VGGLoss"
-]
 
 class GANLoss(nn.Module):
     def __init__(self, target_real_label=1.0, target_fake_label=0.0):
         super(GANLoss, self).__init__()
-        self.register_buffer('real_label', torch.tensor(target_real_label))
-        self.register_buffer('fake_label', torch.tensor(target_fake_label))
+        self.register_buffer("real_label", torch.tensor(target_real_label))
+        self.register_buffer("fake_label", torch.tensor(target_fake_label))
 
         self.loss = nn.BCEWithLogitsLoss()
 
@@ -26,6 +23,7 @@ class GANLoss(nn.Module):
     def __call__(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
         return self.loss(input, target_tensor)
+
 
 # Source code reference from `https://github.com/richzhang/PerceptualSimilarity`.
 class LPIPSLoss(torch.nn.Module):
@@ -60,8 +58,8 @@ class TVLoss(torch.nn.Module):
         w_x = x.size()[3]
         count_h = self.tensor_size(x[:, :, 1:, :])
         count_w = self.tensor_size(x[:, :, :, 1:])
-        h_tv = torch.pow((x[:, :, 1:, :] - x[:, :, :h_x - 1, :]), 2).sum()
-        w_tv = torch.pow((x[:, :, :, 1:] - x[:, :, :, :w_x - 1]), 2).sum()
+        h_tv = torch.pow((x[:, :, 1:, :] - x[:, :, : h_x - 1, :]), 2).sum()
+        w_tv = torch.pow((x[:, :, :, 1:] - x[:, :, :, : w_x - 1]), 2).sum()
         tv_loss = self.weight * 2 * (h_tv / count_h + w_tv / count_w) / batch_size
 
         return tv_loss
@@ -72,7 +70,7 @@ class TVLoss(torch.nn.Module):
 
 
 class VGGLoss(torch.nn.Module):
-    r""" Where VGG19 represents the feature map of 7/8/35/36th layer in pretrained VGG19 model.
+    r"""Where VGG19 represents the feature map of 7/8/35/36th layer in pretrained VGG19 model.
 
     `"Photo-Realistic Single Image Super-Resolution Using a Generative Adversarial Network" <https://arxiv.org/pdf/1609.04802.pdf>`_
     `"ESRGAN: Enhanced Super-Resolution Generative Adversarial Networks" <https://arxiv.org/pdf/1809.00219.pdf>`_
@@ -84,7 +82,7 @@ class VGGLoss(torch.nn.Module):
     """
 
     def __init__(self, feature_layer: int = 35) -> None:
-        """ Constructing characteristic loss function of VGG network. For VGG19 35th layer.
+        """Constructing characteristic loss function of VGG network. For VGG19 35th layer.
 
         Args:
             feature_layer (int): How many layers in VGG19. (Default: 35).
@@ -132,12 +130,16 @@ class VGGLoss(torch.nn.Module):
         """
         super(VGGLoss, self).__init__()
         model = torchvision.models.vgg19(pretrained=True)
-        self.features = torch.nn.Sequential(*list(model.features.children())[:feature_layer]).eval()
+        self.features = torch.nn.Sequential(
+            *list(model.features.children())[:feature_layer]
+        ).eval()
         # Freeze parameters. Don't train.
         for name, param in self.features.named_parameters():
             param.requires_grad = False
 
     def forward(self, source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        vgg_loss = torch.nn.functional.l1_loss(self.features(source), self.features(target))
+        vgg_loss = torch.nn.functional.l1_loss(
+            self.features(source), self.features(target)
+        )
 
         return vgg_loss

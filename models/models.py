@@ -14,12 +14,12 @@ def initialize_weights(net_l, scale=1):
     for net in net_l:
         for m in net.modules():
             if isinstance(m, nn.Conv2d):
-                init.kaiming_normal_(m.weight, a=0, mode='fan_in')
+                init.kaiming_normal_(m.weight, a=0, mode="fan_in")
                 m.weight.data *= scale  # for residual block
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
-                init.kaiming_normal_(m.weight, a=0, mode='fan_in')
+                init.kaiming_normal_(m.weight, a=0, mode="fan_in")
                 m.weight.data *= scale
                 if m.bias is not None:
                     m.bias.data.zero_()
@@ -47,7 +47,9 @@ class ResidualDenseBlock_5C(nn.Module):
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
 
         # initialization
-        initialize_weights([self.conv1, self.conv2, self.conv3, self.conv4, self.conv5], 0.1)
+        initialize_weights(
+            [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5], 0.1
+        )
 
     def forward(self, x):
         x1 = self.lrelu(self.conv1(x))
@@ -59,7 +61,7 @@ class ResidualDenseBlock_5C(nn.Module):
 
 
 class RRDB(nn.Module):
-    '''Residual in Residual Dense Block'''
+    """Residual in Residual Dense Block"""
 
     def __init__(self, nf, gc=32):
         super(RRDB, self).__init__()
@@ -85,7 +87,7 @@ class Generator(nn.Module):
         self.trunk_conv = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
         #### upsampling
         self.upconv1 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
-        if self.sf==4:
+        if self.sf == 4:
             self.upconv2 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
         self.HRconv = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
         self.conv_last = nn.Conv2d(nf, out_nc, 3, 1, 1, bias=True)
@@ -97,14 +99,16 @@ class Generator(nn.Module):
         trunk = self.trunk_conv(self.RRDB_trunk(fea))
         fea = fea + trunk
 
-        fea = self.lrelu(self.upconv1(F.interpolate(fea, scale_factor=2, mode='nearest')))
-        if self.sf==4:
-            fea = self.lrelu(self.upconv2(F.interpolate(fea, scale_factor=2, mode='nearest')))
+        fea = self.lrelu(
+            self.upconv1(F.interpolate(fea, scale_factor=2, mode="nearest"))
+        )
+        if self.sf == 4:
+            fea = self.lrelu(
+                self.upconv2(F.interpolate(fea, scale_factor=2, mode="nearest"))
+            )
         out = self.conv_last(self.lrelu(self.HRconv(fea)))
 
         return out
-
-
 
 
 # --------------------------------------------
@@ -112,67 +116,103 @@ class Generator(nn.Module):
 # If n_layers = 3, then the receptive field is 70x70
 # --------------------------------------------
 class Discriminator(nn.Module):
-    def __init__(self, input_nc=3, ndf=64, n_layers=3, norm_type='batch'):
+    def __init__(self, input_nc=3, ndf=64, n_layers=3, norm_type="batch"):
         super(Discriminator, self).__init__()
         self.n_layers = n_layers
 
-        '''
+        """
         'batch'
         'instance'
         'spectral'
         'batchspectral'
         'none'
-        '''
-        if norm_type == 'batch':
-            norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+        """
+        if norm_type == "batch":
+            norm_layer = functools.partial(
+                nn.BatchNorm2d, affine=True, track_running_stats=True
+            )
             use_sp_norm = False
             use_bias = False
-        elif norm_type == 'instance':
-            norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
+        elif norm_type == "instance":
+            norm_layer = functools.partial(
+                nn.InstanceNorm2d, affine=False, track_running_stats=False
+            )
             use_sp_norm = False
             use_bias = True
-        elif norm_type == 'spectral':
+        elif norm_type == "spectral":
             norm_layer = None
             use_sp_norm = True
             use_bias = True
-        elif norm_type == 'batchspectral':
-            norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
+        elif norm_type == "batchspectral":
+            norm_layer = functools.partial(
+                nn.BatchNorm2d, affine=True, track_running_stats=True
+            )
             use_sp_norm = True
             use_bias = False
-        elif norm_type == 'none':
+        elif norm_type == "none":
             norm_layer = None
             use_sp_norm = False
             use_bias = True
         else:
-            raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
+            raise NotImplementedError(
+                "normalization layer [%s] is not found" % norm_type
+            )
 
         kw = 4
-        padw = int(np.ceil((kw-1.0)/2))
+        padw = int(np.ceil((kw - 1.0) / 2))
         sequence = [
-            self.use_spectral_norm(nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), use_sp_norm),
-            nn.LeakyReLU(0.2)
+            self.use_spectral_norm(
+                nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+                use_sp_norm,
+            ),
+            nn.LeakyReLU(0.2),
         ]
 
         nf_mult = 1
         nf_mult_prev = 1
         for n in range(1, n_layers):
             nf_mult_prev = nf_mult
-            nf_mult = min(2**n, 8)
+            nf_mult = min(2 ** n, 8)
             sequence += [
-                self.use_spectral_norm(nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=2, padding=padw, bias=use_bias), use_sp_norm),
+                self.use_spectral_norm(
+                    nn.Conv2d(
+                        ndf * nf_mult_prev,
+                        ndf * nf_mult,
+                        kernel_size=kw,
+                        stride=2,
+                        padding=padw,
+                        bias=use_bias,
+                    ),
+                    use_sp_norm,
+                ),
                 norm_layer(ndf * nf_mult) if norm_layer else None,
-                nn.LeakyReLU(0.2)
+                nn.LeakyReLU(0.2),
             ]
 
         nf_mult_prev = nf_mult
-        nf_mult = min(2**n_layers, 8)
+        nf_mult = min(2 ** n_layers, 8)
         sequence += [
-            self.use_spectral_norm(nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=1, padding=padw, bias=use_bias), use_sp_norm),
+            self.use_spectral_norm(
+                nn.Conv2d(
+                    ndf * nf_mult_prev,
+                    ndf * nf_mult,
+                    kernel_size=kw,
+                    stride=1,
+                    padding=padw,
+                    bias=use_bias,
+                ),
+                use_sp_norm,
+            ),
             norm_layer(ndf * nf_mult) if norm_layer else None,
-            nn.LeakyReLU(0.2)
+            nn.LeakyReLU(0.2),
         ]
-        sequence += [self.use_spectral_norm(nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw), use_sp_norm)]
-        
+        sequence += [
+            self.use_spectral_norm(
+                nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw),
+                use_sp_norm,
+            )
+        ]
+
         sequence_new = []
         for n in range(len(sequence)):
             if sequence[n] is not None:
