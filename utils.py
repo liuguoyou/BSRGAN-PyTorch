@@ -4,7 +4,7 @@ from pytorch_msssim import ssim
 import PIL.Image as pil_image
 
 def check_image_file(filename: str):
-    return any(filename.endswith(extension) for extension in [".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".JPG", ".JPEG", ".PNG", ".BMP"])
+    return any(filename.endswith(extension) for extension in [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".JPG", ".JPEG", ".PNG"])
 
 # 전처리 과정 함수
 def preprocess(img):

@@ -6,8 +6,6 @@ import torch
 import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
 
-import tensorflow as tf
-
 from torch.utils.data.dataloader import DataLoader
 from torch import nn
 from torch.cuda import amp
@@ -19,15 +17,6 @@ from PIL import Image
 from models.loss import VGGLoss, GANLoss
 from models.models import Generator, Discriminator
 from lpips import LPIPS
-
-
-
-# 테스트 이미지 경로 설정
-test_image_path = 'examples/butterfly.png'
-# 테스트 이미지 불러오기
-test_image = Image.open(test_image_path).convert('RGB')
-# 테스트 이미지 전처리
-test_image = preprocess(test_image)
 
 
 if __name__ == '__main__':
@@ -217,6 +206,12 @@ if __name__ == '__main__':
                 content_loss = content_criterion(preds, hr.detach())
                 adversarial_loss = adversarial_criterion(fake_output, True)
                 g_loss = 1 * pixel_loss + 1 * content_loss + 0.1 * adversarial_loss
+            
+            """ 1 epoch 마다 테스트 이미지 확인 """        
+            if i == 0:
+                vutils.save_image(lr.detach(), os.path.join(args.outputs_dir, f"LR_{epoch}.jpg"))
+                vutils.save_image(hr.detach(), os.path.join(args.outputs_dir, f"HR_{epoch}.jpg"))
+                vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"preds_{epoch}.jpg"))
 
             """ 가중치 업데이트 """
             scaler.scale(g_loss).backward()
@@ -287,12 +282,5 @@ if __name__ == '__main__':
                     'best_lpips': best_lpips,
                 }, os.path.join(args.outputs_dir, 'g_epoch_{}.pth'.format(epoch)))
 
-        """ 나비 이미지 테스트 """
-        with torch.no_grad():
-            lr = test_image.to(device)
-            preds = generator(lr)
-            vutils.save_image(preds.detach(), os.path.join(args.outputs_dir, f"BSRGAN_{epoch}.jpg"))
-            #writer.add_image(f'{epoch}_BSRGAN_x{args.scale} results', preds.squeeze().detach())
-    
     """ 텐서보드 종료 """
     writer.close()

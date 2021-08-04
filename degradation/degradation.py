@@ -143,7 +143,7 @@ def degradation_pipeline(img):
             img = get_camera(img, degrade_dict)
         elif mode == 'restore':
             img = get_restore(img, h, w, degrade_dict)
-    return img
+    return img.clip(0, 255)
 
 
 def get_blur(img, degrade_dict):
@@ -171,7 +171,7 @@ def get_blur(img, degrade_dict):
     # cv2.imwrite("test.png", kernel)
     img = ndimage.filters.convolve(img, np.expand_dims(kernel, axis=2), mode='reflect')
 
-    return img
+    return img.clip(0, 255)
 
 
 def get_down(img, degrade_dict):
@@ -186,13 +186,13 @@ def get_down(img, degrade_dict):
     elif mode == "bicubic":
         new_h, new_w = int(h/sf)//2*2, int(w/sf)//2*2
         img = cv2.resize(img, (new_h, new_w), interpolation=cv2.INTER_CUBIC)
-    return img
+    return img.clip(0, 255)
 
 
 def get_noise(img, degrade_dict):
     noise_level = degrade_dict["noise_level"]
     img = img + np.random.normal(0, noise_level, img.shape)
-    return img
+    return img.clip(0, 255)
 
 
 def get_jpeg(img, degrade_dict):
@@ -200,7 +200,7 @@ def get_jpeg(img, degrade_dict):
     trans = ia.JpegCompression(compression=qf)
     degrade_function = lambda x: trans.augment_image(x)
     img = degrade_function(img.astype(np.uint8))
-    return img
+    return img.clip(0, 255)
 
 
 def get_camera(img, degrade_dict):
@@ -222,7 +222,7 @@ def get_camera(img, degrade_dict):
     # print(deg_img.shape, type(deg_img))
     deg_img = np.array(deg_img).astype(np.uint8)
     # img = cv2.cvtColor(deg_img, cv2.COLOR_BGR2RGB)
-    return deg_img
+    return deg_img.clip(0, 255)
 
 
 def get_restore(img, h, w, degrade_dict):
@@ -231,7 +231,7 @@ def get_restore(img, h, w, degrade_dict):
     img = cv2.resize(img, (h, w), interpolation=cv2.INTER_CUBIC)
     if need_shift:
         img = shift_pixel(img, int(sf))
-    return img
+    return img.clip(0, 255)
 
 
 def get_kernel_pixel(x, y, sigma_x, sigma_y):
