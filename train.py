@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=123)
     parser.add_argument("--resume-g", type=str, default="generator.pth")
     parser.add_argument("--resume-d", type=str, default="discriminator.pth")
-    parser.add_argument("--cuda", type=str, default="0")
+    parser.add_argument("--cuda", type=str, default="2")
     args = parser.parse_args()
 
     """ weight를 저장 할 경로 설정 """
