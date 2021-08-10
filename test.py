@@ -28,6 +28,8 @@ if __name__ == "__main__":
         for n, p in torch.load(args.weights_file, map_location=device).items():
             if n in state_dict.keys():
                 state_dict[n].copy_(p)
+            else:
+                raise RuntimeError("wtf")
 
     model.eval()
 

@@ -298,7 +298,7 @@ if __name__ == "__main__":
         writer.add_scalar("lpips/test", lpips.avg, epoch)
 
         """  Best 모델 저장 """
-        if lpips.avg > best_lpips:
+        if lpips.avg < best_lpips:
             best_lpips = lpips.avg
             torch.save(
                 generator.state_dict(), os.path.join(args.outputs_dir, "best_g.pth")
