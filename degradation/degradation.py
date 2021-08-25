@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import cv2
 import torch
@@ -269,6 +268,7 @@ class Degradation:
         img: low-quality patch, size: lq_patchsizeXlq_patchsizeXC, range: [0, 1]
         hq: corresponding high-quality patch, size: (lq_patchsizexsf)X(lq_patchsizexsf)XC, range: [0, 1]
         """
+
         img = uint2single(np.array(img))
         img = self.add_sharpening(img)
         hq = img.copy()
@@ -349,12 +349,9 @@ if __name__ == "__main__":
     for i in range(10):
         print(i)
         img = pil_image.open("00001.png").convert("RGB")
-        img = uint2single(np.array(img))
         sf = 4
         img_lq = deg.degradation_bsrgan_plus(img, sf=sf, shuffle_prob=0.1)
-        # lq_nearest =  cv2.resize(util.single2uint(img_lq), (int(sf*img_lq.shape[1]), int(sf*img_lq.shape[0])), interpolation=0)
         img = pil_image.fromarray(img_lq)
         img.save(f"{i}.png")
 
 
-#    run utils/utils_blindsr.py
