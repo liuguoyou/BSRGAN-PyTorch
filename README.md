@@ -17,7 +17,11 @@ Single Image Super-resolutoin (SISR)으로 현실에서 훼손된 이미지를 �
 
 ## Train
 ``` bash
-python3 train.py --train-file ${train_datasets} --eval-file ${valid_datasets} --outputs-dir ${save_model_dir} --scale ${2 or 4} --pretrained-net ${BSRNet.pth}
+# Using Distributed data parallel
+python3 train.py --train-file ${train_datasets} --eval-file ${valid_datasets} --outputs-dir ${save_model_dir} --scale ${2 or 4} --pretrained-net ${BSRNet.pth} --gpus ${number of gpus} --distributed
+
+# Using Single GPU
+python3 train.py --train-file ${train_datasets} --eval-file ${valid_datasets} --outputs-dir ${save_model_dir} --scale ${2 or 4} --pretrained-net ${BSRNet.pth} --gpus ${gpus number}
 ```
 
 ## Test
