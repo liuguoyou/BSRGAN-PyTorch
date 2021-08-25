@@ -29,7 +29,7 @@ if __name__ == "__main__":
             if n in state_dict.keys():
                 state_dict[n].copy_(p)
             else:
-                raise RuntimeError("wtf")
+                raise RuntimeError("Error when loading a model")
 
     model.eval()
 

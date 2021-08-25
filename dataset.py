@@ -11,7 +11,7 @@ class Dataset(object):
     # (이미지 디렉토리, 패치 사이즈, 스케일, 텐서플로우를 이용한 이미지 로더 사용 여부) 초기화
     def __init__(self, images_dir, image_size, upscale_factor):
         """Degrdation class 불러오기"""
-        self.deg = Degradation()
+        self.deg = Degradation(sf=upscale_factor)
         """이미지 파일 불러오기"""
         self.filenames = [
             os.path.join(images_dir, x)
@@ -21,11 +21,7 @@ class Dataset(object):
         self.lr_transforms = transforms.Compose(
             [
                 transforms.ToPILImage(),
-                transforms.Lambda(self.deg.degradation_pipeline),
-                transforms.Resize(
-                    (image_size // upscale_factor, image_size // upscale_factor),
-                    interpolation=Image.BICUBIC,
-                ),
+                transforms.Lambda(self.deg.degradation_bsrgan_plus),
                 transforms.ToTensor(),
             ]
         )
@@ -34,7 +30,6 @@ class Dataset(object):
                 transforms.RandomCrop((image_size, image_size)),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
-                # transforms.AutoAugment(),
                 transforms.ToTensor(),
             ]
         )
