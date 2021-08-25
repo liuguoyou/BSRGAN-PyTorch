@@ -6,6 +6,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
 import random
+from datetime import datetime
 
 from torch.utils.data.dataloader import DataLoader
 from torch import nn
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format="[ %(levelname)s ] %(message)s", level=logging.INFO)
 
 """ GPU 개수 설정"""
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 
 
 def setup(rank, world_size):
@@ -66,6 +67,9 @@ def gan_trainer(
     device,
     args,
 ):
+    if device == 0 or not args.distributed:
+        """텐서보드 설정"""
+        writer = SummaryWriter(args.outputs_dir)
 
     generator.train()
     discriminator.train()
@@ -91,6 +95,8 @@ def gan_trainer(
     """ 모델 평가 measurements 설정 """
     psnr = AverageMeter(name="PSNR", fmt=":.6f")
     ssim = AverageMeter(name="SSIM", fmt=":.6f")
+
+    start = datetime.now()
 
     """  트레이닝 Epoch 시작 """
     for i, (lr, hr) in enumerate(train_dataloader):
@@ -174,30 +180,30 @@ def gan_trainer(
         best_ssim = ssim.avg
         torch.save(generator.state_dict(), os.path.join(args.outputs_dir, "best_g.pth"))
 
-    """ Epoch 1000번에 1번 저장 """
-    if epoch % 100 == 0:
-        """Discriminator 모델 저장"""
-        torch.save(
-            {
-                "epoch": epoch,
-                "model_state_dict": discriminator.state_dict(),
-                "optimizer_state_dict": discriminator_optimizer.state_dict(),
-            },
-            os.path.join(args.outputs_dir, "d_epoch_{}.pth".format(epoch)),
-        )
-
-        """ Generator 모델 저장 """
-        torch.save(
-            {
-                "epoch": epoch,
-                "model_state_dict": generator.state_dict(),
-                "optimizer_state_dict": generator_optimizer.state_dict(),
-                "best_ssim": best_ssim,
-            },
-            os.path.join(args.outputs_dir, "g_epoch_{}.pth".format(epoch)),
-        )
-
     if device == 0 or not args.distributed:
+        """Epoch 1000번에 1번 저장"""
+        if epoch % 100 == 0:
+            """Discriminator 모델 저장"""
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": discriminator.state_dict(),
+                    "optimizer_state_dict": discriminator_optimizer.state_dict(),
+                },
+                os.path.join(args.outputs_dir, "d_epoch_{}.pth".format(epoch)),
+            )
+
+            """ Generator 모델 저장 """
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": generator.state_dict(),
+                    "optimizer_state_dict": generator_optimizer.state_dict(),
+                    "best_ssim": best_ssim,
+                },
+                os.path.join(args.outputs_dir, "g_epoch_{}.pth".format(epoch)),
+            )
+
         """1 epoch 마다 텐서보드 업데이트"""
         writer.add_scalar("d_Loss/train", d_losses.avg, epoch)
         writer.add_scalar("g_Loss/train", g_losses.avg, epoch)
@@ -208,6 +214,8 @@ def gan_trainer(
         """ 1 epoch 마다 텐서보드 업데이트 """
         writer.add_scalar("psnr/test", psnr.avg, epoch)
         writer.add_scalar("ssim/test", ssim.avg, epoch)
+
+        print("Training complete in: " + str(datetime.now() - start))
 
 
 def main_worker(gpu, args):
@@ -350,10 +358,6 @@ def main_worker(gpu, args):
         discriminator_scheduler.step()
         generator_scheduler.step()
 
-    if gpu == 0 or not args.distributed:
-        """텐서보드 종료"""
-        writer.close()
-
 
 if __name__ == "__main__":
     """로그 설정"""
@@ -378,7 +382,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-epochs", type=int, default=100000)
     parser.add_argument("--num-workers", type=int, default=8)
-    parser.add_argument("--patch-size", type=int, default=288)
+    parser.add_argument("--patch-size", type=int, default=256)
     parser.add_argument("--seed", type=int, default=123)
 
     """ Distributed data parallel setup"""
