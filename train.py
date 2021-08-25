@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format="[ %(levelname)s ] %(message)s", level=logging.INFO)
 
 """ GPU 개수 설정"""
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4"
 
 
 def setup(rank, world_size):
@@ -176,9 +176,11 @@ def gan_trainer(
             ssim.update(calc_ssim(preds, hr).mean(), len(lr))
 
     """  Best 모델 저장 """
-    if ssim.avg < best_ssim:
+    if ssim.avg > best_ssim:
         best_ssim = ssim.avg
-        torch.save(generator.state_dict(), os.path.join(args.outputs_dir, "best_g.pth"))
+        torch.save(
+            generator.module.state_dict(), os.path.join(args.outputs_dir, "best_g.pth")
+        )
 
     if device == 0 or not args.distributed:
         """Epoch 1000번에 1번 저장"""
@@ -197,7 +199,7 @@ def gan_trainer(
             torch.save(
                 {
                     "epoch": epoch,
-                    "model_state_dict": generator.state_dict(),
+                    "model_state_dict": generator.module.state_dict(),
                     "optimizer_state_dict": generator_optimizer.state_dict(),
                     "best_ssim": best_ssim,
                 },
@@ -414,7 +416,7 @@ if __name__ == "__main__":
     cudnn.deterministic = True
 
     if args.distributed:
-        args.world_size = torch.cuda.device_count() * args.nodes
+        args.world_size = args.gpus * args.nodes
         mp.spawn(main_worker, nprocs=args.gpus, args=(args,), join=True)
     else:
         main_worker(args.gpus, args)
