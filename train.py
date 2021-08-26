@@ -28,10 +28,10 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-
 """ 로그 설정 """
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="[ %(levelname)s ] %(message)s", level=logging.INFO)
+
 
 def setup(rank, world_size):
     """DDP 디바이스 설정"""
@@ -171,16 +171,17 @@ def gan_trainer(
             psnr.update(calc_psnr(preds, hr), len(lr))
             ssim.update(calc_ssim(preds, hr).mean(), len(lr))
 
-    """  Best 모델 저장 """
-    if ssim.avg > best_ssim:
-        best_ssim = ssim.avg
-        torch.save(
-            generator.module.state_dict(), os.path.join(args.outputs_dir, "best_g.pth")
-        )
-
     if device == 0 or not args.distributed:
-        """Epoch 1000번에 1번 저장"""
-        if epoch % 100 == 0:
+        """Best 모델 저장"""
+        if ssim.avg > best_ssim:
+            best_ssim = ssim.avg
+            torch.save(
+                generator.module.state_dict(),
+                os.path.join(args.outputs_dir, "best_g.pth"),
+            )
+
+        """Epoch 10번에 1번 저장"""
+        if epoch % 10 == 0:
             """Discriminator 모델 저장"""
             torch.save(
                 {
@@ -378,7 +379,7 @@ if __name__ == "__main__":
     """Training details args setup"""
     parser.add_argument("--gan-lr", type=float, default=1e-5)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--num-epochs", type=int, default=100000)
+    parser.add_argument("--num-epochs", type=int, default=1000)
     parser.add_argument("--num-workers", type=int, default=8)
     parser.add_argument("--patch-size", type=int, default=256)
     parser.add_argument("--seed", type=int, default=123)

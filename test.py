@@ -18,14 +18,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cudnn.benchmark = True
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
     model = Generator(scale_factor=args.scale).to(device)
     try:
         model.load_state_dict(torch.load(args.weights_file, map_location=device))
     except:
         state_dict = model.state_dict()
-        for n, p in torch.load(args.weights_file, map_location=device).items():
+        for n, p in torch.load(args.weights_file, map_location=device)[
+            "model_state_dict"
+        ].items():
             if n in state_dict.keys():
                 state_dict[n].copy_(p)
             else:
@@ -35,16 +37,13 @@ if __name__ == "__main__":
 
     image = pil_image.open(args.image_file).convert("RGB")
 
-    image_width = (image.width // args.scale) * args.scale
-    image_height = (image.height // args.scale) * args.scale
-
-    lr = image.resize((image_width, image_height), resample=pil_image.BICUBIC)
-    bicubic = lr.resize(
-        (lr.width * args.scale, lr.height * args.scale), resample=pil_image.BICUBIC
+    bicubic = image.resize(
+        (image.width * args.scale, image.height * args.scale),
+        resample=pil_image.BICUBIC,
     )
     bicubic.save(args.image_file.replace(".", "_bicubic_x{}.".format(args.scale)))
 
-    lr = preprocess(lr).to(device)
+    lr = preprocess(image).to(device)
     bic = preprocess(bicubic).to(device)
 
     with torch.no_grad():
